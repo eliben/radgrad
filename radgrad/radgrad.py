@@ -6,6 +6,12 @@ import numpy as _np
 
 @dataclass
 class Node:
+    """Node in the computation graph.
+
+    Nodes enable AD by holding the VJP function for each computational step,
+    along with references to this node's predecessors in the graph.
+    """
+
     vjp_func: Callable
     predecessors: list["Node"]
 
@@ -17,6 +23,11 @@ def make_root_node():
 
 @dataclass
 class Box:
+    """Box for AD tracing.
+
+    Boxes wrap values and associate them with a Node in the computation graph.
+    """
+
     value: typing.Any
     node: Node
 
@@ -29,6 +40,12 @@ def maybe_box(value):
 
 
 def wrap_primitive(f):
+    """Wrap a primitive function to use Boxes for AD tracing.
+
+    "Primitive" in this context means a function that is unaware of radgrad's
+    machinery and just operates on numbers or NumPy arrays.
+    """
+
     def wrapped(*args):
         # If no arguments are boxes, there's no tracing to be done. Just
         # call the primitive and return its result.
@@ -68,10 +85,25 @@ vjp_rules = {}
 
 
 def add_vjp_rule(np_primitive, vjp_maker_func):
+    """Helper to register a VJP rule in vjp_rules."""
     vjp_rules[np_primitive] = vjp_maker_func
 
 
 def backprop(arg_nodes, out_node, out_g):
+    """Backpropagation through the computation graph.
+
+    arg_nodes:
+        List of nodes corresponding to the arguments of the function. A
+        gradient is computed for each of these nodes.
+    out_node:
+        Starting node for backpropagation. This should be the output node of
+        the computational graph.
+    out_g:
+        Gradient of the output node - the derivative of some abstract metric
+        w.r.t. the graph's output. This is typically set to 1.
+
+    Returns a list of gradients, one for each argument node.
+    """
     grads = {id(out_node): out_g}
     for node in toposort(out_node):
         g = grads.pop(id(node))
@@ -103,8 +135,24 @@ def toposort(out_node):
 
 
 def grad(f):
+    """Takes a function f and returns a new function that computes its gradient.
+
+    The gradient is computed at a specific point - the values of f's arguments.
+    Let's say f takes n arguments. Then grad(f)(x1, x2, ..., xn) returns
+    [df/dx1, df/dx2, ..., df/dxn], where df/dxi is the gradient of f with
+    respect to xi, computed at the point (x1, x2, ..., xn).
+
+    This only supports functions f that return a scalar.
+    """
+
     def wrapped(*args):
+        # Start by boxing all arguments so we can properly trace out the
+        # computational graph.
         boxed_args = [Box(value=x, node=make_root_node()) for x in args]
+
+        # Run the function with boxed arguments; this will construct the
+        # computation graph out of Box values, and returns the Box for f's
+        # output.
         out = f(*boxed_args)
         arg_nodes = [b.node for b in boxed_args]
 
@@ -113,6 +161,8 @@ def grad(f):
         #     print(f"- {n}")
         #     print(f"  {inspect.getsource(n.vjp_func)}")
 
+        # Run backpropagation to compute gradients, starting at the output
+        # node.
         return backprop(arg_nodes, out.node, _np.float64(1.0))
 
     return wrapped
