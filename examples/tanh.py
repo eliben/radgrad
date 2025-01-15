@@ -1,3 +1,5 @@
+# Hyperbolic tangent function and its derivative.
+
 import radgrad.numpy_wrapper as np
 from radgrad import grad
 

@@ -26,6 +26,8 @@ try:
     y = sigm(x)
     dy = dsigm_dx(x)[0]
 
+    plt.axhline(y=0, color="lightgray", alpha=0.5)
+    plt.axvline(x=0, color="lightgray", alpha=0.5)
     plt.plot(x, y, label="sigm")
     plt.plot(x, dy, label="dsigm_dx")
     plt.legend()

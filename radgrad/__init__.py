@@ -1,5 +1,7 @@
 from .radgrad import grad
 
+# 'grad' should be the only public entry point for the 'radgrad' package,
+# in addition to importing the 'numpy_wrapper' module as 'np'.
 __all__ = ["grad"]
 
 
