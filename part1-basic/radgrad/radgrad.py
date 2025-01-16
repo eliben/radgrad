@@ -109,11 +109,9 @@ def backprop(arg_nodes, out_node, out_g):
         g = grads.pop(id(node))
 
         inputs_g = node.vjp_func(g)
-        # print(f"Node: {node}, g={g}, inputs_g={inputs_g}")
         assert len(inputs_g) == len(node.predecessors)
         for inp_node, g in zip(node.predecessors, inputs_g):
             grads[id(inp_node)] = grads.get(id(inp_node), 0.0) + g
-            # print(f"  set {inp_node} to {grads[id(inp_node)]}")
     return [grads.get(id(node), 0.0) for node in arg_nodes]
 
 
@@ -155,11 +153,6 @@ def grad(f):
         # output.
         out = f(*boxed_args)
         arg_nodes = [b.node for b in boxed_args]
-
-        # import inspect
-        # for n in toposort(out.node):
-        #     print(f"- {n}")
-        #     print(f"  {inspect.getsource(n.vjp_func)}")
 
         # Run backpropagation to compute gradients, starting at the output
         # node.
