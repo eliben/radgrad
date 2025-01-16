@@ -190,6 +190,9 @@ def grad1(f):
 
     This is useful when f has only one argument, since it's easier to compose
     for higher-order gradients.
+
+    Warning: if f has more than one argument, grad1 will return the gradient
+    w.r.t. the first argument only, the other gradients will be discarded.
     """
 
     def wrap_grad(*args):

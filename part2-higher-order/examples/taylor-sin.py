@@ -2,7 +2,7 @@
 # uses a `for` loop to compute the Taylor series of sin(x). The derivative
 # of this function is computed using the `grad` function, and the result is
 # printed for a few values of x.
-from radgrad import grad
+from radgrad import grad1
 import math
 
 
@@ -22,12 +22,12 @@ def taylor_sin(x):
     return ans
 
 
-dsin_dx = grad(taylor_sin)
+dsin_dx = grad1(taylor_sin)
 
 for x in ["0.0", "math.pi / 4", "math.pi / 2", "math.pi"]:
     xname, xval = x, eval(x)
     print(f"sin({xname}) = {taylor_sin(xval):.3}")
-    print(f"dsin_dx({xname}) = {dsin_dx(xval)[0]:.3}")
+    print(f"dsin_dx({xname}) = {dsin_dx(xval):.3}")
 
 try:
     import numpy  # This is the actual Numpy, not radgrad's wrapper
@@ -36,7 +36,7 @@ try:
     x = numpy.linspace(-math.pi, math.pi, 1000)
 
     y = taylor_sin(x)
-    dy = dsin_dx(x)[0]
+    dy = dsin_dx(x)
 
     plt.axhline(y=0, color="lightgray", alpha=0.5)
     plt.axvline(x=0, color="lightgray", alpha=0.5)
