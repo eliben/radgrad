@@ -27,6 +27,8 @@ class Box:
     """Box for AD tracing.
 
     Boxes wrap values and associate them with a Node in the computation graph.
+    level specifies the tracing level of the box - higher levels are used for
+    higher-order gradients.
     """
 
     value: typing.Any
@@ -42,7 +44,10 @@ def wrap_primitive(f):
     """
 
     def wrapped(*args):
-        # Find the highest box level among the arguments.
+        # Find the highest box level among the arguments, and make sure *all*
+        # arguments are boxed at that level. This ensures that lower level
+        # boxes are treated like constants when computing higher-order
+        # gradients.
         level = max((x.level for x in args if isinstance(x, Box)), default=0)
 
         if level == 0:
@@ -50,14 +55,14 @@ def wrap_primitive(f):
             # call the primitive and return its result.
             return f(*args)
 
-        # TODO
         boxes = [box_at_level(level, x) for x in args]
 
         # Unbox the values, compute forward output and obtain the
         # VJP function for this computation.
         output, vjp_func = vjp_rules[f](*[b.value for b in boxes])
 
-        # Box the output and return it, with an associated Node.
+        # Box the output to the appropriate level and return it, with an
+        # associated Node.
         return Box(
             level=level,
             value=output,
@@ -70,6 +75,7 @@ def wrap_primitive(f):
 box_level = 0
 
 
+# Context manager to increment the box level for recursive calls of grad.
 @contextmanager
 def new_box_level():
     global box_level
@@ -81,6 +87,7 @@ def new_box_level():
 
 
 def box_at_level(level, v):
+    """Box a value at a specific level, unless it's already boxed at that level."""
     if isinstance(v, Box) and v.level == level:
         return v
     return Box(value=v, node=make_root_node(), level=level)
@@ -126,11 +133,9 @@ def backprop(arg_nodes, out_node, out_g):
         g = grads.pop(id(node))
 
         inputs_g = node.vjp_func(g)
-        # print(f"Node: {node}, g={g}, inputs_g={inputs_g}")
         assert len(inputs_g) == len(node.predecessors)
         for inp_node, g in zip(node.predecessors, inputs_g):
             grads[id(inp_node)] = grads.get(id(inp_node), 0.0) + g
-            # print(f"  set {inp_node} to {grads[id(inp_node)]}")
     return [grads.get(id(node), 0.0) for node in arg_nodes]
 
 
