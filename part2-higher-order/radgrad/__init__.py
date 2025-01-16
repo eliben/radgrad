@@ -1,8 +1,8 @@
-from .radgrad import grad
+from .radgrad import grad, grad1
 
 # 'grad' should be the only public entry point for the 'radgrad' package,
 # in addition to importing the 'numpy_wrapper' module as 'np'.
-__all__ = ["grad"]
+__all__ = ["grad", "grad1"]
 
 
 # Import this module just for its side effects, in case the user doesn't

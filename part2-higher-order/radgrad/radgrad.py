@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from collections.abc import Callable
+from contextlib import contextmanager
 import typing
 import numpy as _np
 
@@ -30,13 +31,7 @@ class Box:
 
     value: typing.Any
     node: Node
-
-
-def maybe_box(value):
-    """Box the value if it's not already a Box."""
-    if isinstance(value, Box):
-        return value
-    return Box(value=value, node=make_root_node())
+    level: int = 0
 
 
 def wrap_primitive(f):
@@ -47,14 +42,16 @@ def wrap_primitive(f):
     """
 
     def wrapped(*args):
-        # If no arguments are boxes, there's no tracing to be done. Just
-        # call the primitive and return its result.
-        if not any(isinstance(x, Box) for x in args):
+        # Find the highest box level among the arguments.
+        level = max((x.level for x in args if isinstance(x, Box)), default=0)
+
+        if level == 0:
+            # If no arguments are boxes, there's no tracing to be done. Just
+            # call the primitive and return its result.
             return f(*args)
 
-        # For uniform handling in the rest of the function, make sure that
-        # all inputs are boxes.
-        boxes = [maybe_box(x) for x in args]
+        # TODO
+        boxes = [box_at_level(level, x) for x in args]
 
         # Unbox the values, compute forward output and obtain the
         # VJP function for this computation.
@@ -62,11 +59,31 @@ def wrap_primitive(f):
 
         # Box the output and return it, with an associated Node.
         return Box(
+            level=level,
             value=output,
             node=Node(vjp_func=vjp_func, predecessors=[b.node for b in boxes]),
         )
 
     return wrapped
+
+
+box_level = 0
+
+
+@contextmanager
+def new_box_level():
+    global box_level
+    box_level += 1
+    try:
+        yield box_level
+    finally:
+        box_level -= 1
+
+
+def box_at_level(level, v):
+    if isinstance(v, Box) and v.level == level:
+        return v
+    return Box(value=v, node=make_root_node(), level=level)
 
 
 # vjp_rules holds the calculation and VJP rules for each primitive.
@@ -146,23 +163,36 @@ def grad(f):
     """
 
     def wrapped(*args):
-        # Start by boxing all arguments so we can properly trace out the
-        # computational graph.
-        boxed_args = [Box(value=x, node=make_root_node()) for x in args]
+        with new_box_level() as level:
+            # Start by boxing all arguments so we can properly trace out the
+            # computational graph.
+            boxed_args = [
+                Box(value=x, level=level, node=make_root_node()) for x in args
+            ]
 
-        # Run the function with boxed arguments; this will construct the
-        # computation graph out of Box values, and returns the Box for f's
-        # output.
-        out = f(*boxed_args)
-        arg_nodes = [b.node for b in boxed_args]
+            # Run the function with boxed arguments; this will construct the
+            # computation graph out of Box values, and returns the Box for f's
+            # output.
+            out = f(*boxed_args)
+            out = box_at_level(level, out)
 
-        # import inspect
-        # for n in toposort(out.node):
-        #     print(f"- {n}")
-        #     print(f"  {inspect.getsource(n.vjp_func)}")
+            arg_nodes = [b.node for b in boxed_args]
 
-        # Run backpropagation to compute gradients, starting at the output
-        # node.
-        return backprop(arg_nodes, out.node, _np.float64(1.0))
+            # Run backpropagation to compute gradients, starting at the output
+            # node.
+            return backprop(arg_nodes, out.node, _np.float64(1.0))
 
     return wrapped
+
+
+def grad1(f):
+    """Just like grad, but returns a single gradient instead of a list.
+
+    This is useful when f has only one argument, since it's easier to compose
+    for higher-order gradients.
+    """
+
+    def wrap_grad(*args):
+        return grad(f)(*args)[0]
+
+    return wrap_grad
