@@ -115,13 +115,13 @@ This produces a plot of several levels of derivatives of the `tanh` function:
 
 Some notes of how Part 2 works, and what's different from Part 1.
 
-The key insight is that the derivative calculation is just a sequence of
+The key insight is that the derivative calculation is a sequence of
 primitives and operators, just like the original computation; therefore, if we
 trace the derivative calculation, we can also find the derivative of the
 derivative. The changes from Part 1 to Part 2 make this possible, in two steps.
 
-The easier step is making sure our VJP functions are defined in terms of
-traced primitives rather than original Numpy primitives, e.g:
+The simpler step to explain is making sure our VJP functions are defined in
+terms of traced primitives rather than original Numpy primitives, e.g:
 
 ```python
 add_vjp_rule(_np.sin, lambda x: (sin(x), lambda g: [cos(x) * g]))
