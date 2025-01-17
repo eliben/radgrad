@@ -180,7 +180,7 @@ which itself calculates `np.cos(0.5) * g`.
 
 But note that we said we're replacing `np.cos` by `cos` in the VJP functions
 of Part 2. So this backpropagation through the computational graph is itself
-a Python computation composed out of a sequence of wrapped operations, meaning
+a Python computation composed of a sequence of wrapped operations, meaning
 it can build _its own_ computational graph for the second derivative and so on.
 
 This is exactly how higher-order derivatives work in `radgrad`. The only
@@ -191,7 +191,10 @@ we have `cos(x) * g` where `cos(x)` is a `Box` (because `x` is), while
 computation with arguments `cos(x)` and `g`, it doesn't `Box` values that
 are already `Box`es, but this is a mistake, because `cos(x)` would have
 a `Node` with predecessors relevant to the first derivative calculation,
-not the second.
+not the second. Recall that the computational graph is built
+_while the computation is running_; if something is already a box, we should
+not interefere with it because it contains critical information for building
+the computational graph of the computation.
 
 The solution is to add the concept of a "box level".
 
@@ -212,22 +215,19 @@ class Box:
 
 Each time `grad` is
 invoked, it increments a (global) box level, and decrements it when the
-derivative calculation is done. For nested invocations of `grad` as in
+derivative calculation is fully done. For nested invocations of `grad` as in
 `grad1(grad1(f))`, the innermost `grad1` (calculating the first derivative)
 will create boxes with level 1, while the outer `grad1` (calculating the
 second derivative) with level 2. `wrap_primitive` is adjusted to box all
 arguments at the highest level of any argument - to ensure that existing
-lower-level `Box`es are put into other `Box`es. This prevents mixing up
-of computational graphs between the different orders of derivatives.
+lower-level `Box`es are put into other `Box`es (because the computation
+arguments will be incoming at the highest box level). This prevents mixing up
+computational graphs between the different orders of derivatives.
 
-Once again, use a graphical diff between the `radgrad.py` files of parts 1
-and 2 to see the full difference.
-
-
-
-
-
-
+This technique is borrowed from [Autograd](https://github.com/hips/autograd).
+The [JAX](https://github.com/jax-ml/jax) framework generalizes it to a
+nesting of different "interpreters" that all compose (e.g. `grad` and other
+things like `vmap`). See the [autodidax doc](https://jax.readthedocs.io/en/latest/autodidax.html) for more details on this.
 
 [^1]: Part 2 also adds a `grad1` helper - it just wraps `grad` to return a
 single derivative instead of a list; this results in nicer code when we want to
