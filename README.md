@@ -111,5 +111,28 @@ This produces a plot of several levels of derivatives of the `tanh` function:
   <img alt="tanh derivatives" src="doc/tanh-derivatives.png" />
 </p>
 
+## Higher-order derivatives in Part 2
+
+Some quick notes of how Part 2 works, and what's different from Part 1. The
+key insight is that the derivative calculation is composed from the same
+types of Python and Numpy operations that the original computation is composed
+of; therefore, if we trace the derivative calculation, we can also find the
+derivative of the derivative. The changes from Part 1 to Part 2 make this
+possible, in two steps.
+
+The easier step is making sure our VJP functions are defined in terms of
+traced primitives rather than original Numpy primitives, e.g:
+
+```python
+add_vjp_rule(_np.sin, lambda x: (sin(x), lambda g: [cos(x) * g]))
+```
+
+Note that the gradient now uses `cos(x) * g` rather than `_np.cos(x) * g`.
+`cos` is our wrapped primitive, so it supports tracing.
+
+The more complicated step is ensuring that recursive invocations of `grad`
+compose properly and don't interfere with each other, since there are multiple
+levels of `Box`\es involved.
+
 
 
