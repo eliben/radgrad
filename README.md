@@ -132,7 +132,56 @@ Note that the gradient now uses `cos(x) * g` rather than `_np.cos(x) * g`.
 
 The more complicated step is ensuring that recursive invocations of `grad`
 compose properly and don't interfere with each other, since there are multiple
-levels of `Box`\es involved.
+levels of `Box`es involved[^1]. This is done by adding a `level` for each
+box, with the level becoming automatically higher for every additional
+derivative.
+
+To understand how this works, consider this simple example first, assuming
+Part 1:
+
+```python
+import radgrad.numpy_wrapper as np
+from radgrad import grad1
+
+def f(x):
+    return x + np.sin(x)
+
+df_dx = grad1(f)
+print(df_dx(0.5))
+```
+
+What happens when `df_dx(0.5)` is invoked?
+
+A `Box` is created for `0.5`; this box has an empty node with no predecessors,
+since it's an argument ("root" node). Then `f` is called with the `Box` as the
+argument. Python evaluates the expression inside `f`.
+
+It starts with `np.sin(x)`, which calls our wrapped `sin` primitive. Since `x`
+is already a box, there's no need to box it again. The VJP rule for `sin` is
+invoked, calculates the actual value `np.sin(0.5)` and returns a derivative
+function that will calculate `np.cos(0.5) * g` when called with `g`. Finally,
+the output is `Box`ed with a `Node` that has the argument `x` as the
+predecessor.
+
+The overloaded `+` operates similarly, and we end up with something like the
+following computational graph built out of `Node`s (the arrows point to
+predecessor nodes):
+
+```mermaid
+graph TD;
+    ADD-->SIN;
+    ADD-->X;
+    SIN-->X;
+```
 
 
+
+
+
+
+
+[^1]: Part 2 also adds a `grad1` helper - it just wraps `grad` to return a
+single derivative instead of a list; this results in nicer code when we want to
+compute higher-order derivatives of functions with a single argument, e.g.
+`d3y = grad1(grad1(grad1(tanh)))(x)`.
 
