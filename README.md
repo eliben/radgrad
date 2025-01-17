@@ -174,6 +174,55 @@ graph TD;
     SIN-->X;
 ```
 
+Then `backprop` is invoked on this graph with the `ADD` node as the starting
+point. It calls the VJP function of `+`, and then the VJP function of `sin`,
+which itself calculates `np.cos(0.5) * g`.
+
+But note that we said we're replacing `np.cos` by `cos` in the VJP functions
+of Part 2. So this backpropagation through the computational graph is itself
+a Python computation composed out of a sequence of wrapped operations, meaning
+it can build _its own_ computational graph for the second derivative and so on.
+
+This is exactly how higher-order derivatives work in `radgrad`. The only
+issue to resolve is that when backpropagation runs, some of the values
+involved may already be `Box`es. For example, in the VJP function of `sin`
+we have `cos(x) * g` where `cos(x)` is a `Box` (because `x` is), while
+`g` is not nominally a box. When the `*` operator invokes a wrapped
+computation with arguments `cos(x)` and `g`, it doesn't `Box` values that
+are already `Box`es, but this is a mistake, because `cos(x)` would have
+a `Node` with predecessors relevant to the first derivative calculation,
+not the second.
+
+The solution is to add the concept of a "box level".
+
+```python
+@dataclass
+class Box:
+    """Box for AD tracing.
+
+    Boxes wrap values and associate them with a Node in the computation graph.
+    level specifies the tracing level of the box - higher levels are used for
+    higher-order gradients.
+    """
+
+    value: typing.Any
+    node: Node
+    level: int = 0
+```
+
+Each time `grad` is
+invoked, it increments a (global) box level, and decrements it when the
+derivative calculation is done. For nested invocations of `grad` as in
+`grad1(grad1(f))`, the innermost `grad1` (calculating the first derivative)
+will create boxes with level 1, while the outer `grad1` (calculating the
+second derivative) with level 2. `wrap_primitive` is adjusted to box all
+arguments at the highest level of any argument - to ensure that existing
+lower-level `Box`es are put into other `Box`es. This prevents mixing up
+of computational graphs between the different orders of derivatives.
+
+Once again, use a graphical diff between the `radgrad.py` files of parts 1
+and 2 to see the full difference.
+
 
 
 
