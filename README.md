@@ -6,7 +6,7 @@
 
 ----
 
-**radgrad** (**rad** stands for reverse-mode automatic differentiation) is
+**radgrad** (**rad** = **r**everse-mode **a**utomatic **d**ifferentiation) is
 an educational implementation of automatic differentiation on top
 of a Numpy wrapper. It is a (very) simplified clone of
 [Autograd](https://github.com/hips/autograd).
@@ -25,8 +25,8 @@ dtanh_dx = grad(tanh)
 print(dtanh_dx(1.0))
 ```
 
-`grad` is a higher-order function. It takes a function that contains
-mathematical calculation that uses Numpy, and transforms it into a function
+`grad` is a higher-order function. It takes a function expressing a
+mathematical computation using Numpy, and transforms it into a function
 that computes the derivative of this computation. In the code above, the call
 `tanh(1.0)` evaluates the value of the `tanh` function at `1.0`; the call
 `dtanh_dx(1.0)` evaluates the derivative of the `tanh` function with respect
@@ -34,14 +34,14 @@ to its inputs at `1.0`.
 
 To understand how `radgrad` works, start by reading
 [this blog post](https://eli.thegreenplace.net/2025/reverse-mode-automatic-differentiation/).
-Then, just read `radgrad`'s code and play with the examples. The code is
+Then, read through `radgrad`'s code and play with the examples. The code is
 heavily commented to explain what's going on.
 
 To make the learning journey easier, this project is split into two parts:
 
 * [Part 1](https://github.com/eliben/radgrad/tree/main/part1-basic): implements
-  the simplest AD mechanism possible, with support for only first order
-  derivatives.
+  the simplest AD mechanism possible, with support for first order
+  derivatives only.
 * [Part 2](https://github.com/eliben/radgrad/tree/main/part2-higher-order):
   builds on top of part 1 to implement higher-order derivatives.
 
@@ -113,10 +113,10 @@ This produces a plot of several levels of derivatives of the `tanh` function:
 
 ## Higher-order derivatives in Part 2
 
-Some quick notes of how Part 2 works, and what's different from Part 1. The
-key insight is that the derivative calculation is composed from the same
-types of Python and Numpy operations that the original computation is composed
-of; therefore, if we trace the derivative calculation, we can also find the
+Some notes of how Part 2 works, and what's different from Part 1. The
+key insight is that the derivative calculation is just a sequence of
+primitives and operators, just like the original computation;
+therefore, if we trace the derivative calculation, we can also find the
 derivative of the derivative. The changes from Part 1 to Part 2 make this
 possible, in two steps.
 
@@ -132,12 +132,11 @@ Note that the gradient now uses `cos(x) * g` rather than `_np.cos(x) * g`.
 
 The more complicated step is ensuring that recursive invocations of `grad`
 compose properly and don't interfere with each other, since there are multiple
-levels of `Box`es involved[^1]. This is done by adding a `level` for each
+levels of `Box`es involved. This is done by adding a `level` for each
 box, with the level becoming automatically higher for every additional
 derivative.
 
-To understand how this works, consider this simple example first, assuming
-Part 1:
+To understand how this works, consider this simple example[^1]:
 
 ```python
 import radgrad.numpy_wrapper as np
