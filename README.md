@@ -113,12 +113,12 @@ This produces a plot of several levels of derivatives of the `tanh` function:
 
 ## Higher-order derivatives in Part 2
 
-Some notes of how Part 2 works, and what's different from Part 1. The
-key insight is that the derivative calculation is just a sequence of
-primitives and operators, just like the original computation;
-therefore, if we trace the derivative calculation, we can also find the
-derivative of the derivative. The changes from Part 1 to Part 2 make this
-possible, in two steps.
+Some notes of how Part 2 works, and what's different from Part 1.
+
+The key insight is that the derivative calculation is just a sequence of
+primitives and operators, just like the original computation; therefore, if we
+trace the derivative calculation, we can also find the derivative of the
+derivative. The changes from Part 1 to Part 2 make this possible, in two steps.
 
 The easier step is making sure our VJP functions are defined in terms of
 traced primitives rather than original Numpy primitives, e.g:
@@ -157,7 +157,7 @@ argument. Python evaluates the expression inside `f`.
 
 It starts with `np.sin(x)`, which calls our wrapped `sin` primitive. Since `x`
 is already a box, there's no need to box it again. The VJP rule for `sin` is
-invoked, calculates the actual value `np.sin(0.5)` and returns a derivative
+invoked, calculates the actual value `np.sin(0.5)` and returns a VJP
 function that will calculate `np.cos(0.5) * g` when called with `g`. Finally,
 the output is `Box`ed with a `Node` that has the argument `x` as the
 predecessor.
